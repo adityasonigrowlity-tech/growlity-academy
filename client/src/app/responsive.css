@@ -1,0 +1,77 @@
+/* Growlity Academy - Responsiveness System */
+
+/* Breakpoints:
+   Mobile: 375px
+   Tablet: 768px
+   Desktop: 1440px
+*/
+
+/* Mobile Adjustments (Default is often mobile-first, but these are specific tweaks) */
+@media (max-width: 767px) {
+  .mobile-only {
+    display: block;
+  }
+  .desktop-only {
+    display: none;
+  }
+  .container {
+    padding-left: var(--spacing-4);
+    padding-right: var(--spacing-4);
+  }
+}
+
+/* Tablet Adjustments */
+@media (min-width: 768px) and (max-width: 1439px) {
+  .tablet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-4);
+  }
+}
+
+/* Desktop Adjustments */
+@media (min-width: 1440px) {
+  .desktop-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-6);
+  }
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+}
+
+/* Base Responsive Utilities */
+.img-fluid {
+  max-width: 100%;
+  height: auto;
+}
+
+.flex-responsive {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .flex-responsive {
+    flex-direction: row;
+  }
+}
+
+/* Auth Pages Mobile Vertical Alignment */
+@media (max-width: 1023px) {
+  .auth-mobile-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-h-screen: 100vh;
+  }
+
+  /* Specific tweak to shift content slightly up if needed for visual balance */
+  .auth-form-wrapper {
+    margin-top: -5vh; /* Shifts content up slightly to account for visual weight */
+  }
+}
