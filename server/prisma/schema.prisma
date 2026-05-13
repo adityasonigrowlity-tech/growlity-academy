@@ -1,0 +1,419 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+// 1. Users (Core Authentication)
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String    @db.VarChar(120)
+  email             String    @unique @db.VarChar(255)
+  password_hash     String    @db.Text
+  role              String    @db.VarChar(20) // student / instructor / admin / corporate_hr
+  profile_image     String?   @db.Text
+  is_email_verified Boolean   @default(false)
+  status            String    @db.VarChar(20) // active / suspended
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  // Relations
+  email_tokens      EmailVerificationToken[]
+  reset_tokens      PasswordResetToken[]
+  sessions          UserSession[]
+  courses_taught    Course[]             @relation("InstructorCourses")
+  enrollments       Enrollment[]
+  lesson_progress   LessonProgress[]
+  wishlists         Wishlist[]
+  carts             Cart[]
+  payments          Payment[]
+  reviews           Review[]
+  certificates      Certificate[]
+  notifications     Notification[]
+  corporate_managed CorporateCompany[]   @relation("HRManager")
+  corporate_affil   CorporateEmployee[]
+  subscriptions     UserSubscription[]
+  coupon_usages     CouponUsage[]
+  announcements     Announcement[]
+  video_analytics   VideoWatchAnalytics[]
+  recommendations   CourseRecommendation[]
+}
+
+// 2. Email Verification Tokens
+model EmailVerificationToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  token      String   @db.Text
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+// 3. Password Reset Tokens
+model PasswordResetToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  token      String   @db.Text
+  expires_at DateTime
+  used       Boolean  @default(false)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+// 4. User Sessions
+model UserSession {
+  id            String   @id @default(uuid()) @db.Uuid
+  user_id       String   @db.Uuid
+  refresh_token String   @db.Text
+  ip_address    String?  @db.VarChar(50)
+  user_agent    String?  @db.Text
+  expires_at    DateTime
+  created_at    DateTime @default(now())
+  user          User     @relation(fields: [user_id], references: [id])
+}
+
+// 5. Categories
+model Category {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar
+  parent_id  String?  @db.Uuid
+  slug       String   @db.VarChar
+  created_at DateTime @default(now())
+  courses    Course[]
+}
+
+// 6. Courses
+model Course {
+  id             String   @id @default(uuid()) @db.Uuid
+  title          String   @db.VarChar
+  slug           String   @db.VarChar
+  description    String   @db.Text
+  instructor_id  String   @db.Uuid
+  category_id    String   @db.Uuid
+  level          String   @db.VarChar // beginner / intermediate / advanced
+  price          Decimal  @db.Decimal
+  thumbnail_url  String?  @db.Text
+  status         String   @db.VarChar // draft / published
+  rating         Decimal  @default(0) @db.Decimal
+  total_students Int      @default(0)
+  created_at     DateTime @default(now())
+
+  // Relations
+  instructor      User                  @relation("InstructorCourses", fields: [instructor_id], references: [id])
+  category        Category              @relation(fields: [category_id], references: [id])
+  sections        CourseSection[]
+  enrollments     Enrollment[]
+  wishlists       Wishlist[]
+  carts           Cart[]
+  order_items     OrderItem[]
+  reviews         Review[]
+  certificates    Certificate[]
+  sub_courses     SubscriptionCourse[]
+  sub_usage       SubscriptionUsage[]
+  announcements   Announcement[]
+  recommendations CourseRecommendation[]
+}
+
+// 7. Course Sections
+model CourseSection {
+  id         String   @id @default(uuid()) @db.Uuid
+  course_id  String   @db.Uuid
+  title      String   @db.VarChar
+  position   Int
+  created_at DateTime @default(now())
+  course     Course   @relation(fields: [course_id], references: [id])
+  lessons    Lesson[]
+}
+
+// 8. Lessons
+model Lesson {
+  id         String   @id @default(uuid()) @db.Uuid
+  section_id String   @db.Uuid
+  title      String   @db.VarChar
+  video_url  String?  @db.Text
+  duration   Int?     // Duration in seconds
+  transcript String?  @db.Text
+  position   Int
+  created_at DateTime @default(now())
+
+  section         CourseSection         @relation(fields: [section_id], references: [id])
+  resources       CourseResource[]
+  progress_logs   LessonProgress[]
+  quizzes         Quiz[]
+  video_analytics VideoWatchAnalytics[]
+}
+
+// 9. Course Resources
+model CourseResource {
+  id         String   @id @default(uuid()) @db.Uuid
+  lesson_id  String   @db.Uuid
+  file_url   String   @db.Text
+  file_name  String   @db.VarChar
+  created_at DateTime @default(now())
+  lesson     Lesson   @relation(fields: [lesson_id], references: [id])
+}
+
+// 10. Enrollments
+model Enrollment {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  course_id   String   @db.Uuid
+  progress    Int      @default(0)
+  enrolled_at DateTime @default(now())
+  user        User     @relation(fields: [user_id], references: [id])
+  course      Course   @relation(fields: [course_id], references: [id])
+}
+
+// 11. Lesson Progress
+model LessonProgress {
+  id           String    @id @default(uuid()) @db.Uuid
+  user_id      String    @db.Uuid
+  lesson_id    String    @db.Uuid
+  completed    Boolean   @default(false)
+  completed_at DateTime?
+  user         User      @relation(fields: [user_id], references: [id])
+  lesson       Lesson    @relation(fields: [lesson_id], references: [id])
+}
+
+// 12. Wishlist
+model Wishlist {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  course_id  String   @db.Uuid
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+  course     Course   @relation(fields: [course_id], references: [id])
+}
+
+// 13. Cart
+model Cart {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  course_id  String   @db.Uuid
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+  course     Course   @relation(fields: [course_id], references: [id])
+}
+
+// 14. Payments
+model Payment {
+  id               String   @id @default(uuid()) @db.Uuid
+  user_id          String   @db.Uuid
+  amount           Decimal  @db.Decimal
+  payment_gateway  String   @db.VarChar // Razorpay / Stripe
+  transaction_id   String   @db.VarChar
+  status           String   @db.VarChar // success / failed / pending
+  created_at       DateTime @default(now())
+  user             User     @relation(fields: [user_id], references: [id])
+  order_items      OrderItem[]
+  subscriptions    UserSubscription[]
+  coupon_usage     CouponUsage[]
+}
+
+// 15. Order Items
+model OrderItem {
+  id         String  @id @default(uuid()) @db.Uuid
+  payment_id String  @db.Uuid
+  course_id  String  @db.Uuid
+  price      Decimal @db.Decimal
+  payment    Payment @relation(fields: [payment_id], references: [id])
+  course     Course  @relation(fields: [course_id], references: [id])
+}
+
+// 16. Reviews
+model Review {
+  id          String   @id @default(uuid()) @db.Uuid
+  course_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  rating      Int
+  review_text String?  @db.Text
+  created_at  DateTime @default(now())
+  course      Course   @relation(fields: [course_id], references: [id])
+  user        User     @relation(fields: [user_id], references: [id])
+}
+
+// 17. Quizzes
+model Quiz {
+  id         String   @id @default(uuid()) @db.Uuid
+  lesson_id  String   @db.Uuid
+  question   String   @db.Text
+  created_at DateTime @default(now())
+  lesson     Lesson   @relation(fields: [lesson_id], references: [id])
+  options    QuizOption[]
+}
+
+// 18. Quiz Options
+model QuizOption {
+  id          String  @id @default(uuid()) @db.Uuid
+  quiz_id     String  @db.Uuid
+  option_text String  @db.Text
+  is_correct  Boolean @default(false)
+  quiz        Quiz    @relation(fields: [quiz_id], references: [id])
+}
+
+// 19. Certificates
+model Certificate {
+  id              String   @id @default(uuid()) @db.Uuid
+  user_id         String   @db.Uuid
+  course_id       String   @db.Uuid
+  certificate_url String   @db.Text
+  issued_at       DateTime @default(now())
+  user            User     @relation(fields: [user_id], references: [id])
+  course          Course   @relation(fields: [course_id], references: [id])
+}
+
+// 20. Notifications
+model Notification {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  message    String   @db.Text
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+// 21. Corporate Companies
+model CorporateCompany {
+  id                String   @id @default(uuid()) @db.Uuid
+  company_name      String   @db.VarChar
+  hr_user_id        String   @db.Uuid
+  subscription_plan String   @db.VarChar
+  created_at        DateTime @default(now())
+  hr_manager        User     @relation("HRManager", fields: [hr_user_id], references: [id])
+  employees         CorporateEmployee[]
+}
+
+// 22. Corporate Employees
+model CorporateEmployee {
+  id         String   @id @default(uuid()) @db.Uuid
+  company_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  joined_at  DateTime @default(now())
+  company    CorporateCompany @relation(fields: [company_id], references: [id])
+  user       User             @relation(fields: [user_id], references: [id])
+}
+
+// 23. Subscription Plans
+model SubscriptionPlan {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String   @db.VarChar(120)
+  description        String?  @db.Text
+  price              Decimal  @db.Decimal
+  billing_cycle      String   @db.VarChar(20) // monthly / yearly
+  course_access_type String   @db.VarChar(20) // all_courses / selected_courses
+  max_courses        Int?
+  status             String   @db.VarChar(20) // active / inactive
+  created_at         DateTime @default(now())
+  user_subscriptions UserSubscription[]
+  plan_courses       SubscriptionCourse[]
+}
+
+// 24. User Subscriptions
+model UserSubscription {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  plan_id    String   @db.Uuid
+  payment_id String?  @db.Uuid
+  start_date DateTime
+  end_date   DateTime
+  status     String   @db.VarChar(20) // active / expired / cancelled
+  auto_renew Boolean  @default(true)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+  plan       SubscriptionPlan @relation(fields: [plan_id], references: [id])
+  payment    Payment? @relation(fields: [payment_id], references: [id])
+  usage      SubscriptionUsage[]
+}
+
+// 25. Subscription Courses
+model SubscriptionCourse {
+  id         String   @id @default(uuid()) @db.Uuid
+  plan_id    String   @db.Uuid
+  course_id  String   @db.Uuid
+  created_at DateTime @default(now())
+  plan       SubscriptionPlan @relation(fields: [plan_id], references: [id])
+  course     Course           @relation(fields: [course_id], references: [id])
+}
+
+// 26. Subscription Usage
+model SubscriptionUsage {
+  id                   String   @id @default(uuid()) @db.Uuid
+  user_subscription_id String   @db.Uuid
+  course_id            String   @db.Uuid
+  accessed_at          DateTime @default(now())
+  user_subscription    UserSubscription @relation(fields: [user_subscription_id], references: [id])
+  course               Course           @relation(fields: [course_id], references: [id])
+}
+
+// 27. Coupons
+model Coupon {
+  id             String   @id @default(uuid()) @db.Uuid
+  code           String   @unique @db.VarChar(50)
+  discount_type  String   @db.VarChar // percentage / fixed
+  discount_value Decimal  @db.Decimal
+  max_uses       Int
+  expires_at     DateTime
+  created_at     DateTime @default(now())
+  usages         CouponUsage[]
+}
+
+// 28. Coupon Usage
+model CouponUsage {
+  id         String   @id @default(uuid()) @db.Uuid
+  coupon_id  String   @db.Uuid
+  user_id    String   @db.Uuid
+  payment_id String   @db.Uuid
+  used_at    DateTime @default(now())
+  coupon     Coupon   @relation(fields: [coupon_id], references: [id])
+  user       User     @relation(fields: [user_id], references: [id])
+  payment    Payment  @relation(fields: [payment_id], references: [id])
+}
+
+// 29. Announcements
+model Announcement {
+  id            String   @id @default(uuid()) @db.Uuid
+  course_id     String   @db.Uuid
+  instructor_id String   @db.Uuid
+  title         String   @db.VarChar
+  message       String   @db.Text
+  created_at    DateTime @default(now())
+  course        Course   @relation(fields: [course_id], references: [id])
+  instructor    User     @relation(fields: [instructor_id], references: [id])
+}
+
+// 30. Video Watch Analytics
+model VideoWatchAnalytics {
+  id                     String   @id @default(uuid()) @db.Uuid
+  user_id                String   @db.Uuid
+  lesson_id              String   @db.Uuid
+  watch_time_seconds     Int      @default(0)
+  last_position_seconds  Int      @default(0)
+  completed              Boolean  @default(false)
+  device_type            String?  @db.VarChar(50)
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+  user                   User     @relation(fields: [user_id], references: [id])
+  lesson                 Lesson   @relation(fields: [lesson_id], references: [id])
+}
+
+// 31. Course Recommendations
+model CourseRecommendation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  user_id             String   @db.Uuid
+  course_id           String   @db.Uuid
+  recommendation_type String   @db.VarChar(50) // trending / similar / personalized
+  score               Decimal  @db.Decimal
+  created_at          DateTime @default(now())
+  user                User     @relation(fields: [user_id], references: [id])
+  course              Course   @relation(fields: [course_id], references: [id])
+}
